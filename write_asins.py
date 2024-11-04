@@ -37,7 +37,7 @@ def get_asin_lists() -> Orders:
     return orders_ca + orders_us
 
 
-def insert_asin_to_db() -> None:
+def main() -> None:
     orders = get_asin_lists()
     order, item = None, None
     try:
@@ -63,10 +63,6 @@ def insert_asin_to_db() -> None:
         print(e)
         print(order)
         print(item)
-
-
-def main():
-    insert_asin_to_db()
 
 
 if __name__ == "__main__":
