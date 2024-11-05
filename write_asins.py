@@ -18,14 +18,22 @@ created_after = (
 
 
 @retry_on_throttling(delay=1, max_retries=5)
-def get_orders(market_place, created_after):
-    return (
-        Orders(market_place)
-        .get_orders(
-            CreatedAfter=created_after,
-        )
-        .Orders
-    )
+def get_orders(market_place, created_after, orders_list=None, next_token=None):
+    if orders_list is None:
+        orders_list = []
+    if next_token:
+        response = Orders(market_place).get_orders(NextToken=next_token)
+    else:
+        response = Orders(market_place).get_orders(CreatedAfter=created_after)
+
+    orders_list.extend(response.payload.get("Orders", []))
+
+    next_token = response.payload.get("NextToken")
+
+    if next_token:
+        return get_orders(market_place, created_after, orders_list, next_token)
+    else:
+        return orders_list
 
 
 @retry_on_throttling(delay=1, max_retries=5)
