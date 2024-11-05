@@ -5,40 +5,38 @@ from datetime import datetime, timedelta
 from db import Mongo
 import time
 
+from utils import retry_on_throttling
+
 auth_amazon.auth()
 db = Mongo()
 
 created_after = (
-    (datetime.now() - timedelta(days=1))
+    (datetime.now() - timedelta(days=30))
     .replace(hour=0, minute=0, second=0, microsecond=0)
     .isoformat()
 )
 
 
-def get_asin_lists() -> Orders:
-    orders_ca = (
-        Orders()
-        .get_orders(
-            MarketplaceIds=[
-                Marketplaces.CA.marketplace_id,
-            ],
-            CreatedAfter=created_after,
-        )
-        .Orders
-    )
-    orders_us = (
-        Orders()
+@retry_on_throttling(delay=1, max_retries=5)
+def get_orders(market_place, created_after):
+    return (
+        Orders(market_place)
         .get_orders(
             CreatedAfter=created_after,
         )
         .Orders
     )
 
-    return orders_ca + orders_us
+
+@retry_on_throttling(delay=1, max_retries=5)
+def get_items(order_id):
+    return Orders().get_order_items(order_id=order_id).payload.get("OrderItems", [])
 
 
 def main() -> None:
-    orders = get_asin_lists()
+    orders = get_orders(Marketplaces.CA, created_after) + get_orders(
+        Marketplaces.US, created_after
+    )
     order, item = None, None
     try:
         for idx, order in enumerate(orders):
@@ -48,11 +46,7 @@ def main() -> None:
                 market_place = "US"
             else:
                 market_place = "CA"
-            items = (
-                Orders()
-                .get_order_items(order_id=order_id)
-                .payload.get("OrderItems", [])
-            )
+            items = get_items(order_id)
             for item in items:
                 asin = item.get("ASIN")
                 db.insert_asin(asin, market_place)
