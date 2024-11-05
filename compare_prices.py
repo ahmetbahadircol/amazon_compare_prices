@@ -52,7 +52,6 @@ def create_txt():
 
 def compare():
     books = get_all_asins()
-    # books = [("B06XF42YJD", "")]
     create_txt()
     for book in books:
         asin, market_place = book

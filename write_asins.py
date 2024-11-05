@@ -11,7 +11,7 @@ auth_amazon.auth()
 db = Mongo()
 
 created_after = (
-    (datetime.now() - timedelta(days=30))
+    (datetime.now() - timedelta(days=365))
     .replace(hour=0, minute=0, second=0, microsecond=0)
     .isoformat()
 )
