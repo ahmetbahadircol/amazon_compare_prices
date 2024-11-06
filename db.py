@@ -19,7 +19,7 @@ class Mongo:
     def connect(self):
         try:
             self.client = MongoClient(
-                f"mongodb+srv://{self.db_username}:{self.db_pass}@amazon-compare-prices.jg8xs.mongodb.net/amazon-compare-prices?retryWrites=true&w=majority"
+                f"mongodb+srv://{self.db_username}:{self.db_pass}@amazon-compare-prices.jg8xs.mongodb.net/amazon-compare-prices?ssl=true&ssl_cert_reqs=CERT_NONE"
             )
             # breakpoint()
             self.client.admin.command("ping")
