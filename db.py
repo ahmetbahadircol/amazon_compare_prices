@@ -28,9 +28,9 @@ class Mongo:
             self.db = self.client["amazon-compare-prices"]
             self.set_collection = self.db["books"]
 
-        except ConnectionFailure:
+        except ConnectionFailure as e:
             print("Connection to MongoDB failed.")
-            self.client = None
+            raise e
 
     @ensure_collection
     def insert_asin(self, asin: str, market_place: str) -> None:
