@@ -8,7 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 
-from utils import retry_on_throttling
+from utils import reauth, retry_on_throttling
 
 auth_amazon.auth()
 db = Mongo()
@@ -24,11 +24,13 @@ from sp_api.api import Products
 
 
 @retry_on_throttling(delay=2, max_retries=5)
+@reauth
 def get_all_asins():
     return db.find_asins()
 
 
 @retry_on_throttling(delay=2, max_retries=5)
+@reauth
 def get_offers(market_place: str, asin: str):
     try:
         return Products(marketplace=market_place).get_item_offers(asin, "new")
@@ -36,7 +38,6 @@ def get_offers(market_place: str, asin: str):
         print(e)
 
 
-@retry_on_throttling(delay=2, max_retries=5)
 def format_time(t):
     return (
         datetime.fromtimestamp(t).strftime("%H:%M:%S") + f":{int((t % 1) * 1000):03d}"

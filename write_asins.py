@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from db import Mongo
 import time
 
-from utils import retry_on_throttling
+from utils import reauth, retry_on_throttling
 
 auth_amazon.auth()
 db = Mongo()
@@ -18,6 +18,7 @@ created_after = (
 
 
 @retry_on_throttling(delay=1, max_retries=5)
+@reauth
 def get_orders(market_place, created_after, orders_list=None, next_token=None):
     if orders_list is None:
         orders_list = []
@@ -37,6 +38,7 @@ def get_orders(market_place, created_after, orders_list=None, next_token=None):
 
 
 @retry_on_throttling(delay=1, max_retries=5)
+@reauth
 def get_items(order_id):
     return Orders().get_order_items(order_id=order_id).payload.get("OrderItems", [])
 

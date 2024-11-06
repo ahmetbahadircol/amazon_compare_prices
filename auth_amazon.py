@@ -20,6 +20,7 @@ def auth():
     from sp_api.base import Client
 
     try:
+        print("Authotication is successful...")
         return Client(credentials=credentials)
     except TypeError as e:
         print(f"Error auth: {e}")

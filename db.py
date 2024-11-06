@@ -21,6 +21,7 @@ class Mongo:
             self.client = MongoClient(
                 f"mongodb+srv://{self.db_username}:{self.db_pass}@amazon-compare-prices.jg8xs.mongodb.net/amazon-compare-prices?retryWrites=true&w=majority"
             )
+            # breakpoint()
             self.client.admin.command("ping")
             print("Connection to MongoDB is successful.")
 

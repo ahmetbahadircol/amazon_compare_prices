@@ -1,6 +1,11 @@
 from functools import wraps
 import time
-from sp_api.base.exceptions import SellingApiRequestThrottledException
+from sp_api.base.exceptions import (
+    SellingApiRequestThrottledException,
+    SellingApiForbiddenException,
+)
+
+from auth_amazon import auth
 
 
 def ensure_collection(func):
@@ -36,3 +41,16 @@ def retry_on_throttling(delay=1, max_retries=5):
         return wrapper
 
     return decorator
+
+
+def reauth(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except SellingApiForbiddenException:
+            print("Re-Auth is needed. Re-authaticating...")
+            auth()
+            return func(*args, **kwargs)
+
+    return wrapper
