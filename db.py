@@ -11,6 +11,13 @@ class Mongo:
     def __init__(self):
         self.db_username = os.getenv("MONGODB_USER_NAME")
         self.db_pass = os.getenv("MONGODB_USER_PASS")
+        self.local_db = os.getenv("USE_LOCAL_DB").lower() in [
+            "true",
+            "1",
+            "t",
+            "y",
+            "yes",
+        ]
         self.client = None
         self.db = None
         self.set_collection = None
@@ -18,12 +25,17 @@ class Mongo:
 
     def connect(self):
         try:
-            self.client = MongoClient(
-                f"mongodb+srv://{self.db_username}:{self.db_pass}@amazon-compare-prices.jg8xs.mongodb.net/amazon-compare-prices?ssl=true&ssl_cert_reqs=CERT_NONE"
+            conn_str = (
+                "mongodb://localhost:27017/"
+                if self.local_db
+                else f"mongodb+srv://{self.db_username}:{self.db_pass}@amazon-compare-prices.jg8xs.mongodb.net/amazon-compare-prices?ssl=true&ssl_cert_reqs=CERT_NONE"
             )
-            # breakpoint()
+            self.client = MongoClient(conn_str)
             self.client.admin.command("ping")
-            print("Connection to MongoDB is successful.")
+            if not self.local_db:
+                print("Connection to MongoDB is successful.")
+            else:
+                print("Connection to MongoDB LOCAL is successful.")
 
             self.db = self.client["amazon-compare-prices"]
             self.set_collection = self.db["books"]
@@ -52,13 +64,14 @@ class Mongo:
 
     @ensure_collection
     def find_asins(self, asins: list[str] = None) -> list[tuple]:
-        projection = {"_id": 0, "asin": 1, "market_place": 1}
+        projection = {"_id": 0, "asin": 1}
         if asins:
             res = self.set_collection.find({"asin": {"$in": asins}}, projection)
         else:
 
             res = self.set_collection.find({}, projection)
 
-        asin_list = [(doc["asin"], doc["market_place"]) for doc in res]
+        asin_list = [doc["asin"] for doc in res]
 
         return asin_list
+

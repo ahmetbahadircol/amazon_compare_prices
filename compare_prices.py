@@ -1,12 +1,14 @@
 from db import Mongo
 from sp_api.base import Marketplaces
 from sp_api.base.exceptions import SellingApiBadRequestException
+from typing import Optional, Tuple
 
 import auth_amazon
 import time
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+from itertools import islice
 
 from utils import reauth, retry_on_throttling
 
@@ -25,17 +27,11 @@ from sp_api.api import Products
 
 @retry_on_throttling(delay=2, max_retries=5)
 @reauth
-def get_all_asins():
+def get_all_asins() -> list[str]:
+    """
+    returns list of asin numbers of books
+    """
     return db.find_asins()
-
-
-@retry_on_throttling(delay=2, max_retries=5)
-@reauth
-def get_offers(market_place: str, asin: str):
-    try:
-        return Products(marketplace=market_place).get_item_offers(asin, "new")
-    except SellingApiBadRequestException as e:
-        print(e)
 
 
 def format_time(t):
@@ -45,97 +41,164 @@ def format_time(t):
 
 
 def create_txt():
-    with open(f"output_CA.txt", "w") as file_ca:
-        pass
-    with open(f"output_US.txt", "w") as file_us:
-        pass
-
-
-def compare():
-    books = get_all_asins()
-    create_txt()
-    for book in books:
-        asin, market_place = book
-        book_ca = get_offers(Marketplaces.CA, asin)
-        time.sleep(2)
-        book_us = get_offers(Marketplaces.US, asin)
-        time.sleep(2)
-        lowest_price_ca, lowest_price_us = None, None
-
-        try:
-            # Canada Lowest Price
-            offers_ca = book_ca.payload["Summary"]["LowestPrices"]
-            for offer in offers_ca:
-                if offer["condition"] == "new":
-                    lowest_price_ca = offer["LandedPrice"]["Amount"]
-                    break
-            rank_ca = book_ca.payload["Summary"]["SalesRankings"][0]["Rank"]
-
-            # US Lowest Prices
-            offers_us = book_us.payload["Summary"]["LowestPrices"]
-            for offer in offers_us:
-                if offer["condition"] == "new":
-                    lowest_price_us = round(
-                        offer["LandedPrice"]["Amount"] * USD_CA_RATE, 2
-                    )
-                    break
-            rank_us = book_us.payload["Summary"]["SalesRankings"][0]["Rank"]
-
-        except KeyError as e:
-            print("----- KEY ERROR ------")
-            print(e)
-            print(offers_us)
-            print(offers_us)
-            continue
-
-        except AttributeError as e:
-            print(e)
-            continue
-
-        if None in [lowest_price_ca, rank_ca, lowest_price_us, rank_us]:
-            print("----- PRICE ERROR ------")
-            print(lowest_price_ca, rank_ca, lowest_price_us, rank_us)
-            continue
-
-        print(
-            lowest_price_ca,
-            rank_ca,
-            lowest_price_us,
-            rank_us,
-            f"arasındaki fark: {round(abs(lowest_price_ca - lowest_price_us),2)}",
+    with open(f"buy_CA_sell_US.txt", "w") as file_ca:
+        file_ca.write(
+            f"ASIN  |  US PRICE(CAD)  |  RANK CA  |  CA PRICE\n-----------------------------------------\n"
         )
+    with open(f"buy_US_sell_CA.txt", "w") as file_us:
+        file_us.write(
+            f"ASIN  |  US PRICE(CAD)  |  RANK CA  |  CA PRICE\n-----------------------------------------\n"
+        )
+
+
+@retry_on_throttling(delay=2, max_retries=7)
+@reauth
+def get_offers_batch(market_place: str, asins: list[str]) -> list[dict]:
+    """
+    returns list of offers for each book
+
+    TODO: Make this fucntion for flexibile item condition: [new, used, ...]
+    """
+    requests = []
+    for asin in asins:
+        request = {
+            "uri": f"/products/pricing/v0/items/{asin}/offers",
+            "method": "GET",
+            "ItemCondition": "New",
+            "MarketplaceId": getattr(Marketplaces, market_place).marketplace_id,
+        }
+        requests.append(request)
+    try:
+        res = Products().get_item_offers_batch(requests).payload["responses"]
+        time.sleep(2.01)
+        return res
+    except SellingApiBadRequestException as e:
+        print(e)
+
+
+def find_lowest_price(offers: list) -> Tuple[Optional[float], Optional[float]]:
+    if not offers:
+        return None, None
+    min_p = float(0)
+    for off in offers:
+        try:
+            list_p = off["ListingPrice"]["Amount"]
+            shipping_p = off["Shipping"]["Amount"]
+            min_p = min(shipping_p + list_p, min_p)
+        except KeyError as e:
+            print("----- KEY ERROR -----")
+            print(e)
+            continue
+
+    return list_p, shipping_p
+
+
+def compare(books) -> None:
+    """
+    returns None
+
+    This function has three main parts:
+        1. get asin, rank, price, and shipping price of the books (each market) and save it into a dict
+        2. compare for each asin(book)'s price and ranks and decide "SHOULD BUYs" and "SHOULD SELLs"
+        3. Write them into the txt files
+    """
+    books_ca = get_offers_batch("CA", books)
+    books_us = get_offers_batch("US", books)
+    book_info_us, book_info_ca = dict(), dict()
+    for book in books_us:
+        try:
+            list_price, shipping_price = find_lowest_price(
+                book["body"]["payload"]["Offers"]
+            )
+            if list_price is not None or shipping_price is not None:
+                book_info_us[book["body"]["payload"]["ASIN"]] = {
+                    "rank": book["body"]["payload"]["Summary"]["SalesRankings"][0][
+                        "Rank"
+                    ],
+                    "list_price": list_price,
+                    "shipping_price": shipping_price,
+                }
+        except KeyError as e:
+            print("----- KEY ERROR -----")
+            print(e)
+            continue
+
+    for book in books_ca:
+        try:
+            list_price, shipping_price = find_lowest_price(
+                book["body"]["payload"]["Offers"]
+            )
+            if list_price is not None or shipping_price is not None:
+                book_info_ca[book["body"]["payload"]["ASIN"]] = {
+                    "rank": book["body"]["payload"]["Summary"]["SalesRankings"][0][
+                        "Rank"
+                    ],
+                    "list_price": list_price,
+                    "shipping_price": shipping_price,
+                }
+        except KeyError as e:
+            print("----- KEY ERROR -----")
+            print(e)
+            continue
+
+    for asin, info_ca in book_info_ca.items():
+        info_us = book_info_us.get(asin)
+        if not info_us:
+            continue
+
+        lowest_price_ca = info_ca["list_price"]
+        shipping_price_ca = info_ca["shipping_price"]
+        rank_ca = info_ca["rank"]
+        lowest_price_us = round(info_us["list_price"] * USD_CA_RATE, 2)
+        shipping_price_us = round(
+            info_us["shipping_price"] * USD_CA_RATE, 2
+        )  # CONVERT TO CAD
+        rank_us = info_us["rank"]
 
         # Compare Canada and US
 
         # Buy from Canada and Sell in US
-        if lowest_price_ca < lowest_price_us:
-            if all(
-                [
-                    rank_us < MAX_RANK_US,
-                    lowest_price_ca + AMAZON_SHARE < lowest_price_us,
-                ]
-            ):
-                print(f"ADDED {asin} in US file")
-                with open(f"output_US.txt", "a") as file:
-                    file.write(
-                        f"{asin}\t{lowest_price_us}\t{rank_us}\t{lowest_price_ca}\n"
-                    )
+        if all(
+            [
+                rank_us < MAX_RANK_US,
+                lowest_price_ca + shipping_price_ca + AMAZON_SHARE < lowest_price_us,
+            ]
+        ):
+            print(f"ADDED {asin} in US file")
+            with open(f"buy_CA_sell_US.txt", "a") as file_us:
+                file_us.write(
+                    f"{asin}\t{lowest_price_us}\t{rank_us}\t{lowest_price_ca}\n"
+                )
 
         # Buy from US and Sell in Canada
-        else:
-            if all(
-                [
-                    rank_ca < MAX_RANK_CA,
-                    lowest_price_us + AMAZON_SHARE < lowest_price_ca,
-                ]
-            ):
-                print(f"ADDED {asin} in CA file")
-                with open(f"output_CA.txt", "a") as file:
-                    file.write(
-                        f"{asin}\t{lowest_price_us}\t{rank_ca}\t{lowest_price_ca}\n"
-                    )
+        if all(
+            [
+                rank_ca < MAX_RANK_CA,
+                lowest_price_us + shipping_price_us + AMAZON_SHARE < lowest_price_ca,
+            ]
+        ):
+            print(f"ADDED {asin} in CA file")
+            with open(f"buy_US_sell_CA.txt", "a") as file_ca:
+                file_ca.write(
+                    f"{asin}\t{lowest_price_us}\t{rank_ca}\t{lowest_price_ca}\n"
+                )
 
     print("Data written to output.txt")
 
 
-compare()
+def chunk_list(data, chunk_size=20):
+    for i in range(0, len(data), chunk_size):
+        yield list(islice(data, i, i + chunk_size))
+
+
+def main():
+    create_txt()
+    all_books = get_all_asins()
+    test = 1
+    for chunk in chunk_list(all_books):
+        print(f"{test}. try: ")
+        compare(chunk)
+        test += 1
+
+
+main()
