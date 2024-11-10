@@ -1,16 +1,14 @@
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+import pymysql
 from dotenv import load_dotenv
 import os
-from utils import ensure_collection
 
 load_dotenv()
 
 
-class Mongo:
+class MySQLHandler:
     def __init__(self):
-        self.db_username = os.getenv("MONGODB_USER_NAME")
-        self.db_pass = os.getenv("MONGODB_USER_PASS")
+        self.db_username = os.getenv("MYSQL_USER_NAME")
+        self.db_pass = os.getenv("MYSQL_USER_PASS")
         self.local_db = os.getenv("USE_LOCAL_DB").lower() in [
             "true",
             "1",
@@ -18,60 +16,52 @@ class Mongo:
             "y",
             "yes",
         ]
-        self.client = None
-        self.db = None
-        self.set_collection = None
+        self.cursor = None
+        self.connection = None
         self.connect()
 
     def connect(self):
-        try:
-            conn_str = (
-                "mongodb://localhost:27017/"
+        self.connection = pymysql.connect(
+            host=(
+                "ahmetcol.mysql.pythonanywhere-services.com"
                 if self.local_db
-                else f"mongodb+srv://{self.db_username}:{self.db_pass}@amazon-compare-prices.jg8xs.mongodb.net/amazon-compare-prices?ssl=true&ssl_cert_reqs=CERT_NONE"
-            )
-            self.client = MongoClient(conn_str)
-            self.client.admin.command("ping")
-            if not self.local_db:
-                print("Connection to MongoDB is successful.")
-            else:
-                print("Connection to MongoDB LOCAL is successful.")
-
-            self.db = self.client["amazon-compare-prices"]
-            self.set_collection = self.db["books"]
-
-        except ConnectionFailure as e:
-            print("Connection to MongoDB failed.")
-            raise e
-
-    @ensure_collection
-    def insert_asin(self, asin: str, market_place: str) -> None:
-        result = self.set_collection.update_one(
-            {"asin": asin, "market_place": market_place},
-            {"$setOnInsert": {"asin": asin}},
-            upsert=True,
+                else "localhost"
+            ),
+            user=self.db_username,
+            password=self.db_pass,
+            database="amazon_compare_prices",
         )
+        self.cursor = self.connection.cursor()
 
-        if result.upserted_id is None:
-            print(f"ASIN {asin} already exists.")
-        else:
-            print(f"ASIN {asin} inserted successfully.")
+    def insert(self, asin: str):
+        try:
+            query = f"INSERT INTO books (asin) VALUES ('{asin}')"
+            self.cursor.execute(query)
+            self.connection.commit()
+        except pymysql.err.IntegrityError as e:
+            if e.args[0] == 1062:
+                print(f"Duplicate entry found for ASIN: {asin}. Skipping.")
+            else:
+                raise
 
-    @ensure_collection
-    def delete_asin(self, asin: str) -> None:
-        self.set_collection.delete_one({"asin": asin})
-        print(f"ASIN {asin} deleted successfully.")
-
-    @ensure_collection
-    def find_asins(self, asins: list[str] = None) -> list[tuple]:
-        projection = {"_id": 0, "asin": 1}
+    def find(self, asins: list[str] = None) -> list[str]:
+        # Assuming `query_conditions` is a dictionary like {'column': 'value'}
+        query = f"SELECT asin FROM books"
         if asins:
-            res = self.set_collection.find({"asin": {"$in": asins}}, projection)
-        else:
+            query += f" WHERE asin in {asins}"
 
-            res = self.set_collection.find({}, projection)
+        self.cursor.execute(query)
+        asins_tuples = self.cursor.fetchall()
 
-        asin_list = [doc["asin"] for doc in res]
+        return [asin[0] for asin in asins_tuples]
 
-        return asin_list
+    def delete(self, asins: list[str]):
+        # Assuming `query_conditions` is a dictionary
 
+        query = f"DELETE FROM books WHERE asin in {asins}"
+        self.cursor.execute(query)
+        self.connection.commit()
+
+    def close(self):
+        self.cursor.close()
+        self.connection.close()

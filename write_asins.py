@@ -2,16 +2,16 @@ import auth_amazon
 from sp_api.api import Orders
 from sp_api.base import Marketplaces
 from datetime import datetime, timedelta
-from db import Mongo
+from db import MySQLHandler
 import time
 
 from utils import reauth, retry_on_throttling
 
 auth_amazon.auth()
-db = Mongo()
+db = MySQLHandler()
 
 created_after = (
-    (datetime.now() - timedelta(days=365))
+    (datetime.now() - timedelta(days=7))
     .replace(hour=0, minute=0, second=0, microsecond=0)
     .isoformat()
 )
@@ -59,7 +59,7 @@ def main() -> None:
             items = get_items(order_id)
             for item in items:
                 asin = item.get("ASIN")
-                db.insert_asin(asin, market_place)
+                db.insert(asin)
                 print(asin + "---" + sales_channel)
             time.sleep(1)
     except KeyError as e:

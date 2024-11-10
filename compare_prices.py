@@ -1,4 +1,4 @@
-from db import Mongo
+from db import MySQLHandler
 from sp_api.base import Marketplaces
 from sp_api.base.exceptions import SellingApiBadRequestException
 from typing import Optional, Tuple
@@ -13,7 +13,7 @@ from itertools import islice
 from utils import reauth, retry_on_throttling
 
 auth_amazon.auth()
-db = Mongo()
+db = MySQLHandler()
 load_dotenv()
 
 AMAZON_SHARE = int(os.getenv("AMAZON_SHARE"))
@@ -31,7 +31,7 @@ def get_all_asins() -> list[str]:
     """
     returns list of asin numbers of books
     """
-    return db.find_asins()
+    return db.find()
 
 
 def format_time(t):
@@ -76,21 +76,31 @@ def get_offers_batch(market_place: str, asins: list[str]) -> list[dict]:
         print(e)
 
 
-def find_lowest_price(offers: list) -> Tuple[Optional[float], Optional[float]]:
+def find_lowest_price(
+    offers: list, cond: list[str] = ["new"]
+) -> Tuple[Optional[float], Optional[float]]:
     if not offers:
         return None, None
-    min_p = float(0)
+    temp = list()
     for off in offers:
         try:
-            list_p = off["ListingPrice"]["Amount"]
-            shipping_p = off["Shipping"]["Amount"]
-            min_p = min(shipping_p + list_p, min_p)
+            if off["SubCondition"] in cond:
+                list_p = off["ListingPrice"]["Amount"]
+                shipping_p = off["Shipping"]["Amount"]
+                temp.append(
+                    (
+                        list_p,
+                        shipping_p,
+                    )
+                )
+            else:
+                continue
         except KeyError as e:
             print("----- KEY ERROR -----")
             print(e)
             continue
 
-    return list_p, shipping_p
+    return min(temp, key=sum)
 
 
 def compare(books) -> None:
