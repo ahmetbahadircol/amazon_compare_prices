@@ -20,6 +20,7 @@ AMAZON_SHARE = int(os.getenv("AMAZON_SHARE"))
 MAX_RANK_CA = int(os.getenv("MAX_RANK_CA"))
 MAX_RANK_US = int(os.getenv("MAX_RANK_US"))
 USD_CA_RATE = float(os.getenv("USD_CA_RATE"))
+CATROSE_PROFIT_RATE = float(os.getenv("CATROSE_PROFIT_RATE")) + float(1)
 
 
 from sp_api.api import Products
@@ -171,7 +172,9 @@ def compare(books) -> None:
         if all(
             [
                 rank_us < MAX_RANK_US,
-                lowest_price_ca + shipping_price_ca + AMAZON_SHARE < lowest_price_us,
+                (lowest_price_ca + shipping_price_ca + AMAZON_SHARE)
+                * CATROSE_PROFIT_RATE
+                < lowest_price_us,
             ]
         ):
             print(f"ADDED {asin} in US file")
@@ -184,7 +187,9 @@ def compare(books) -> None:
         if all(
             [
                 rank_ca < MAX_RANK_CA,
-                lowest_price_us + shipping_price_us + AMAZON_SHARE < lowest_price_ca,
+                (lowest_price_us + shipping_price_us + AMAZON_SHARE)
+                * CATROSE_PROFIT_RATE
+                < lowest_price_ca,
             ]
         ):
             print(f"ADDED {asin} in CA file")
@@ -211,4 +216,5 @@ def main():
         test += 1
 
 
-main()
+if __name__ == "__main__":
+    main()
