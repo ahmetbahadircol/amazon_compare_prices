@@ -23,9 +23,9 @@ class MySQLHandler:
     def connect(self):
         self.connection = pymysql.connect(
             host=(
-                "ahmetcol.mysql.pythonanywhere-services.com"
+                "localhost"
                 if self.local_db
-                else "localhost"
+                else "ahmetcol.mysql.pythonanywhere-services.com"
             ),
             user=self.db_username,
             password=self.db_pass,

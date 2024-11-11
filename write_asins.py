@@ -4,14 +4,18 @@ from sp_api.base import Marketplaces
 from datetime import datetime, timedelta
 from db import MySQLHandler
 import time
+from dotenv import load_dotenv
+import os
 
 from utils import reauth, retry_on_throttling
 
 auth_amazon.auth()
 db = MySQLHandler()
 
+PULL_DAYS_ASIN = int(os.getenv("PULL_DAYS_ASIN"))
+
 created_after = (
-    (datetime.now() - timedelta(days=7))
+    (datetime.now() - timedelta(days=PULL_DAYS_ASIN))
     .replace(hour=0, minute=0, second=0, microsecond=0)
     .isoformat()
 )

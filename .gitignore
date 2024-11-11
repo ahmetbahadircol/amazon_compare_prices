@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+# Custom Project files
+buy_CA_sell_US.txt
+buy_US_sell_CA.txt
+
 # Distribution / packaging
 .Python
 build/
