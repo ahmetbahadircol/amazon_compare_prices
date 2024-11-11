@@ -172,8 +172,8 @@ def compare(books) -> None:
         if all(
             [
                 rank_us < MAX_RANK_US,
-                (lowest_price_ca + shipping_price_ca + AMAZON_SHARE)
-                * CATROSE_PROFIT_RATE
+                (lowest_price_ca + shipping_price_ca) * CATROSE_PROFIT_RATE
+                + AMAZON_SHARE
                 < lowest_price_us,
             ]
         ):
@@ -187,8 +187,8 @@ def compare(books) -> None:
         if all(
             [
                 rank_ca < MAX_RANK_CA,
-                (lowest_price_us + shipping_price_us + AMAZON_SHARE)
-                * CATROSE_PROFIT_RATE
+                (lowest_price_us + shipping_price_us) * CATROSE_PROFIT_RATE
+                + AMAZON_SHARE
                 < lowest_price_ca,
             ]
         ):
