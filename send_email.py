@@ -15,7 +15,7 @@ def send_mail():
 
     sender_email = "noreplyahmetcol@gmail.com"
     sender_password = GMAIL_APP_PASS
-    recipient_emails = ["colmuhteren@gmail.com", sender_email]
+    recipient_emails = ["colmuhterem@gmail.com", sender_email]
     subject = "Amazon Prices TXT Files"
     body = "See attachments"
 
