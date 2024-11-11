@@ -9,6 +9,7 @@ class MySQLHandler:
     def __init__(self):
         self.db_username = os.getenv("MYSQL_USER_NAME")
         self.db_pass = os.getenv("MYSQL_USER_PASS")
+        self.database = os.getenv("DATABASE")
         self.local_db = os.getenv("USE_LOCAL_DB").lower() in [
             "true",
             "1",
@@ -29,7 +30,7 @@ class MySQLHandler:
             ),
             user=self.db_username,
             password=self.db_pass,
-            database="amazon_compare_prices",
+            database=self.database,
         )
         self.cursor = self.connection.cursor()
 
