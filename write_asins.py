@@ -11,6 +11,7 @@ from utils import reauth, retry_on_throttling
 
 auth_amazon.auth()
 db = MySQLHandler()
+load_dotenv()
 
 PULL_DAYS_ASIN = int(os.getenv("PULL_DAYS_ASIN"))
 
@@ -21,7 +22,7 @@ created_after = (
 )
 
 
-@retry_on_throttling(delay=1, max_retries=5)
+@retry_on_throttling(delay=1, max_retries=10)
 @reauth
 def get_orders(market_place, created_after, orders_list=None, next_token=None):
     if orders_list is None:
