@@ -1,21 +1,16 @@
-from db import Mongo
 from sp_api.base import Marketplaces
-from sp_api.base.exceptions import SellingApiBadRequestException
 from typing import Optional, Tuple
 
-import auth_amazon
+from helpers.auth_amazon import auth
 import time
-from datetime import datetime
 from dotenv import load_dotenv
 import os
-from itertools import islice
 
-from utils import reauth, retry_on_throttling
+from helpers.utils import reauth, retry_on_throttling
 from sp_api.api import Products
 
 
-auth_amazon.auth()
-db = Mongo()
+auth()
 load_dotenv()
 
 AMAZON_SHARE = int(os.getenv("AMAZON_SHARE"))
@@ -59,6 +54,8 @@ def get_item_offers(asin: str, cond: str = "new", mp: str = "US"):
     time.sleep(2)
     price, ship = find_lowest_price(req.payload["Offers"])
     breakpoint()
+    print(price, ship)
 
 
-get_item_offers("077880206X", mp="CA")
+if __name__ == "__main__":
+    get_item_offers("0545627222", mp="CA")
