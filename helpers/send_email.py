@@ -19,7 +19,7 @@ def send_mail(
     sender_email = "noreplyahmetcol@gmail.com"
     sender_password = GMAIL_APP_PASS
     recipient_emails = [
-        # "colmuhterem@gmail.com",
+        "colmuhterem@gmail.com",
         sender_email,
     ]
     body = "See attachments"
