@@ -137,6 +137,7 @@ def _request(url, hearder=None) -> BeautifulSoup:
 
 
 def main(page):
+    flag = 0
     gw_books_info = dict()
     url = f"{MAIN_URL}/collections/all-items?page={page}"
     soup = _request(url=url)
