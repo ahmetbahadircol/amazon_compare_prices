@@ -11,11 +11,17 @@ load_dotenv()
 GMAIL_APP_PASS = os.getenv("GMAIL_APP_PASS")
 
 
-def send_mail(subject: str = "Amazon Prices TXT Files", attachments: list = ["buy_CA_sell_US.txt", "buy_US_sell_CA.txt"]):
+def send_mail(
+    subject: str,
+    attachments: list,
+):
 
     sender_email = "noreplyahmetcol@gmail.com"
     sender_password = GMAIL_APP_PASS
-    recipient_emails = ["colmuhterem@gmail.com", sender_email]
+    recipient_emails = [
+        # "colmuhterem@gmail.com",
+        sender_email,
+    ]
     body = "See attachments"
 
     # Create the email message

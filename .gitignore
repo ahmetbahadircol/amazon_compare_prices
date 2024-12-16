@@ -9,6 +9,8 @@ __pycache__/
 # Custom Project files
 buy_CA_sell_US.txt
 buy_US_sell_CA.txt
+sell_CA.txt
+sell_US.txt
 
 # Distribution / packaging
 .Python

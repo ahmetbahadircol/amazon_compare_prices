@@ -53,7 +53,6 @@ def get_item_offers(asin: str, cond: str = "new", mp: str = "US"):
     req = Products(marketplace=mp_id).get_item_offers(asin, cond)
     time.sleep(2)
     price, ship = find_lowest_price(req.payload["Offers"])
-    breakpoint()
     print(price, ship)
 
 

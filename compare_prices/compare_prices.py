@@ -42,11 +42,11 @@ def format_time(t):
 
 
 def create_txt():
-    with open(f"buy_CA_sell_US.txt", "w") as file_ca:
+    with open(f"compare_prices/buy_CA_sell_US.txt", "w") as file_ca:
         file_ca.write(
-            f"ASIN  |  US PRICE(CAD)  |  RANK CA  |  CA PRICE\n-----------------------------------------\n"
+            f"ASIN  |  US PRICE(CAD)  |  RANK US  |  US PRICE\n-----------------------------------------\n"
         )
-    with open(f"buy_US_sell_CA.txt", "w") as file_us:
+    with open(f"compare_prices/buy_US_sell_CA.txt", "w") as file_us:
         file_us.write(
             f"ASIN  |  US PRICE(CAD)  |  RANK CA  |  CA PRICE\n-----------------------------------------\n"
         )
@@ -104,7 +104,7 @@ def find_lowest_price(
     return min(temp, key=sum)
 
 
-def compare(books) -> None:
+def get_us_and_ca_infos(books) -> None:
     """
     returns None
 
@@ -151,7 +151,11 @@ def compare(books) -> None:
             print("----- KEY ERROR -----")
             print(e)
             continue
+    return book_info_ca, book_info_us
 
+
+def compare(books):
+    book_info_ca, book_info_us = get_us_and_ca_infos(books)
     for asin, info_ca in book_info_ca.items():
         info_us = book_info_us.get(asin)
         if not info_us:
@@ -178,7 +182,7 @@ def compare(books) -> None:
             ]
         ):
             print(f"ADDED {asin} in US file")
-            with open(f"buy_CA_sell_US.txt", "a") as file_us:
+            with open(f"compare_prices/buy_CA_sell_US.txt", "a") as file_us:
                 file_us.write(
                     f"{asin}\t{lowest_price_us}\t{rank_us}\t{lowest_price_ca}\n"
                 )
@@ -193,7 +197,7 @@ def compare(books) -> None:
             ]
         ):
             print(f"ADDED {asin} in CA file")
-            with open(f"buy_US_sell_CA.txt", "a") as file_ca:
+            with open(f"compare_prices/buy_US_sell_CA.txt", "a") as file_ca:
                 file_ca.write(
                     f"{asin}\t{lowest_price_us}\t{rank_ca}\t{lowest_price_ca}\n"
                 )
