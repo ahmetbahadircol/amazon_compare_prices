@@ -1,26 +1,23 @@
-from bs4 import BeautifulSoup
-import requests
+from sp_api.api import ListingsRestrictions
+from sp_api.base import Marketplaces
+from sp_api.api import Sellers
+from sp_api.api import ProductFees
 
+from helpers.auth_amazon import auth
 
-def main(pgn=0):
-    query = "THE BITTLEMORES (SIGNED) - Jann Arden"
-    url = f"https://www.google.com/search?q={query.replace(' ', '+')}&start={pgn}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-    print(f"SAYFA: {pgn}")
-    for result in soup.find_all("a"):
-        link = result.get("href")
-        if link and "/url?q=" in link:
-            temp = link.split("/url?q=")[1].split("&")[0]
-            if "amazon" in temp:
-                print("Amazon")
-                if asin := temp.split("/dp/")[-1].split("&")[0]:
-                    return asin if asin else 1
-    if pgn == 30:
-        print("Anan")
-        return
-    main(pgn + 10)
+auth()
 
+id = (
+    ProductFees()
+    .get_product_fees_estimate_for_asin(asin="0399238735", price=100.00)
+    .payload["FeesEstimateResult"]["FeesEstimateIdentifier"]["SellerId"]
+)
+print(id)
+data = {
+    "asin": "0399238735",
+    "sellerId": id,
+    "marketplaceIds": [Marketplaces.US.marketplace_id],
+}
 
-print(main())
+res = ListingsRestrictions().get_listings_restrictions(**data)
+print(res.payload)

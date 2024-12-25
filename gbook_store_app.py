@@ -4,9 +4,14 @@ import requests
 from bs4 import BeautifulSoup
 from itertools import islice
 from compare_prices.compare_prices import get_us_and_ca_infos
+from helpers.enums import BookType
 from helpers.send_email import send_mail
+from helpers.db import MySQLHandler
+
 from enum import Enum
 from sp_api.api import Catalog
+
+db = MySQLHandler()
 
 from helpers.utils import reauth, retry_on_throttling
 
@@ -20,11 +25,6 @@ CATROSE_PROFIT_RATE = float(os.getenv("CATROSE_PROFIT_RATE")) + float(1)
 GBOOKS_STORE_PROFIT_SHARE = int(os.getenv("GBOOKS_STORE_PROFIT_SHARE"))
 
 MAIN_URL = "https://gwbookstore-london.myshopify.com"
-
-
-class BookType(Enum):
-    PAPER = "Paperback"
-    HARD = "Hardcover"
 
 
 def chunk_dict(data, chunk_size=20):
@@ -74,7 +74,6 @@ def search_google(query: str, pgn=0) -> str:
 
 
 def compare_gbooks_us_and_ca(gbooks_infos: dict) -> None:
-    flag = False
     amazon_ca_infos, amazon_us_infos = get_us_and_ca_infos(gbooks_infos.keys())
     for asin, gbooks_price_title in gbooks_infos.items():
         gbooks_title = gbooks_price_title[0]
@@ -109,7 +108,6 @@ def compare_gbooks_us_and_ca(gbooks_infos: dict) -> None:
                     file_ca.write(
                         f"{gbooks_title}\t{gbooks_price}\t{rank_ca}\t{lowest_price_ca}\n"
                     )
-                flag = 1
         else:  # Sell at US
             if all(
                 [
@@ -122,8 +120,6 @@ def compare_gbooks_us_and_ca(gbooks_infos: dict) -> None:
                     file_us.write(
                         f"{gbooks_title}\t{gbooks_price}\t{rank_us}\t{lowest_price_us}\n"
                     )
-                flag = 1
-    return flag
 
 
 def _request(url, hearder=None) -> BeautifulSoup:
@@ -137,7 +133,6 @@ def _request(url, hearder=None) -> BeautifulSoup:
 
 
 def main(page):
-    flag = 0
     gw_books_info = dict()
     url = f"{MAIN_URL}/collections/all-items?page={page}"
     soup = _request(url=url)
@@ -179,21 +174,34 @@ def main(page):
         if asin:
             print(asin, title, book_type, price)
             gw_books_info[asin] = [title, price, book_type]
+            db.insert(asin)
 
     for chunk in chunk_dict(gw_books_info):
-        flag = compare_gbooks_us_and_ca(chunk)
+        compare_gbooks_us_and_ca(chunk)
 
     return flag
 
 
 if __name__ == "__main__":
-    flag = 0
-    create_txt()
-    for i in range(1, 28):
-        # TODO: Handle this. We need to retrieve the page number automatically, not manually.
-        # Change this into While loop.
-        flag = main(i)
-        flag += flag
+    inp: str = input("Do you want only send emails: press y")
+
+    flag = True if inp.upper() == "Y" else False
+
+    if not flag:
+        create_txt()
+        for i in range(1, 29):
+            # TODO: Handle this. We need to retrieve the page number automatically, not manually.
+            # Change this into While loop.
+            main(i)
+
+        flag = False
+
+        with open("gbook_store/sell_CA.txt", "r") as f_ca:
+            flag = len(f_ca.readlines()) > 1
+
+        if not flag:
+            with open("gbook_store/sell_US.txt", "r") as f_us:
+                flag = len(f_us.readlines()) > 1
 
     if flag:
         send_mail(

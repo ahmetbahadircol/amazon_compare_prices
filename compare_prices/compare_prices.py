@@ -210,11 +210,16 @@ def chunk_list(data, chunk_size=20):
         yield list(islice(data, i, i + chunk_size))
 
 
+from tqdm import tqdm
+
+
 def main():
     create_txt()
     all_books = get_all_asins()
     test = 1
-    for chunk in chunk_list(all_books):
+
+    # tqdm ile ilerleme çubuğu ekle
+    for chunk in tqdm(chunk_list(all_books), desc="İlerleme"):
         print(f"{test}. try: ")
         compare(chunk)
         test += 1
