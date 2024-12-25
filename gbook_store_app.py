@@ -2,18 +2,16 @@ import os
 from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
-from itertools import islice
+
 from compare_prices.compare_prices import get_us_and_ca_infos
 from helpers.enums import BookType
 from helpers.send_email import send_mail
 from helpers.db import MySQLHandler
 
-from enum import Enum
-from sp_api.api import Catalog
 
 db = MySQLHandler()
 
-from helpers.utils import reauth, retry_on_throttling
+from helpers.utils import chunk_dict, get_book_type_from_asin
 
 load_dotenv()
 
@@ -27,12 +25,6 @@ GBOOKS_STORE_PROFIT_SHARE = int(os.getenv("GBOOKS_STORE_PROFIT_SHARE"))
 MAIN_URL = "https://gwbookstore-london.myshopify.com"
 
 
-def chunk_dict(data, chunk_size=20):
-    it = iter(data.items())
-    for _ in range(0, len(data), chunk_size):
-        yield dict(islice(it, chunk_size))
-
-
 def create_txt():
     with open(f"gbook_store/sell_CA.txt", "w") as file_ca:
         file_ca.write(
@@ -42,17 +34,6 @@ def create_txt():
         file_us.write(
             f"TITLE  |  GWBOOKS-STORE-PRICE(CAD)  |  RANK US  |  AMAZON US PRICE\n-----------------------------------------\n"
         )
-
-
-@retry_on_throttling(delay=2, max_retries=5)
-@reauth
-def get_book_type_from_asin(asin: str) -> str:
-    """
-    returns the type of a book using ASIN:
-        HARD: "Hardcover"
-        PAPER: "Paperback"
-    """
-    return Catalog().get_item(asin=asin).payload["AttributeSets"][0]["Binding"]
 
 
 def search_google(query: str, pgn=0) -> str:

@@ -1,8 +1,21 @@
 import http.client  # http.client package is used bcs requests is giving 406 error for some reason in search api
 import json
 from tqdm import tqdm
+import os
+from dotenv import load_dotenv
 
+from compare_prices.compare_prices import get_us_and_ca_infos
 from helpers.enums import BookType
+from helpers.utils import get_book_type_from_asin
+
+load_dotenv()
+
+AMAZON_SHARE = int(os.getenv("AMAZON_SHARE"))
+MAX_RANK_CA = int(os.getenv("MAX_RANK_CA"))
+MAX_RANK_US = int(os.getenv("MAX_RANK_US"))
+USD_CA_RATE = float(os.getenv("USD_CA_RATE"))
+CATROSE_PROFIT_RATE = float(os.getenv("CATROSE_PROFIT_RATE")) + float(1)
+GBOOKS_STORE_PROFIT_SHARE = int(os.getenv("GBOOKS_STORE_PROFIT_SHARE"))
 
 MAIN_URL = "www.thriftbooks.com"
 
@@ -12,7 +25,7 @@ def convert_bytes_to_dict(bytes):
     return json.loads(string_data)
 
 
-def get_asins_and_prices():
+def get_asins_and_prices(page_range: int = 200):
     """
     params:
 
@@ -39,8 +52,8 @@ def get_asins_and_prices():
         "sec-ch-ua-platform": '"macOS"',
         "traceparent": "00-b1099725a7054b61a20b8bf47bd0376c-6c98ec0cbb724178-01",
     }
-    result = list()
-    for page in range(1, 4):
+    result = dict()
+    for page in range(1, page_range + 1):
         try:
             conn = http.client.HTTPSConnection(MAIN_URL)
             payload = json.dumps(
@@ -103,6 +116,7 @@ def get_asins_and_prices():
                         else None
                     )
                     if dict1["type"]:
+                        dict1["title"] = data["Title"]
                         dict1["asin"] = data["ActiveEdition"]["ISBN"]
                         # Iterate copies property
                         for copy in data["ActiveEdition"]["Copies"]:
@@ -119,6 +133,7 @@ def get_asins_and_prices():
                         dict2["type"] = None
                     # Find other book type in editions/editioninfo api
                     if dict2["type"]:
+                        dict2["title"] = data["Title"]
                         id_amazon2 = None
                         for edition in data["PopularEditions"]:
                             if edition["Title"] == dict2["type"]:
@@ -144,9 +159,9 @@ def get_asins_and_prices():
                                 dict2["price"] = float(copy["Price"])
 
                     if dict1.get("price"):
-                        result.append(dict1)
+                        result[dict1["asin"]] = dict1
                     if dict2.get("price"):
-                        result.append(dict2)
+                        result[dict2["asin"]] = dict2
                 finally:
                     conn.close()
 
@@ -154,3 +169,65 @@ def get_asins_and_prices():
             conn.close()
 
     return result
+
+
+def compare_thrift_store_amazon(thrift_books_info: dict):
+    amazon_ca_infos, amazon_us_infos = get_us_and_ca_infos(thrift_books_info.keys())
+    for asin, thrift_book_info in thrift_books_info.items():
+        tb_title, tb_price, tb_type = (
+            thrift_book_info.get("title"),
+            thrift_book_info.get("price"),
+            thrift_book_info.get("type"),
+        )
+        amazon_info_ca = amazon_ca_infos.get(asin)
+        amazon_info_us = amazon_us_infos.get(asin)
+        if not amazon_info_ca or not amazon_info_us:
+            continue
+        
+        amazon_lowest_price_ca = amazon_info_ca["list_price"]
+        amazon_rank_ca = amazon_info_ca["rank"]
+        amazon_lowest_price_us = round(
+            amazon_info_us["list_price"] * USD_CA_RATE, 2
+        )  # CONVERT TO CAD
+        amazon_rank_us = amazon_info_us["rank"]
+        amazon_book_type = get_book_type_from_asin(asin)
+
+        if tb_type != amazon_book_type:
+            continue
+
+        # Sell at Canada
+        if amazon_lowest_price_ca > amazon_lowest_price_us:
+            if all(
+                [
+                    (tb_price + GBOOKS_STORE_PROFIT_SHARE) < amazon_lowest_price_ca,
+                    amazon_rank_ca < MAX_RANK_CA,
+                ]
+            ):
+                print(f"ADDED {asin} in CA file")
+                with open(f"thrift_books/sell_CA.txt", "a") as file_ca:
+                    file_ca.write(
+                        f"{tb_title}\t{tb_price}\t{amazon_rank_ca}\t{amazon_lowest_price_ca}\n"
+                    )
+        else:  # Sell at US
+            if all(
+                [
+                    (tb_price + GBOOKS_STORE_PROFIT_SHARE) < amazon_lowest_price_us,
+                    amazon_rank_us < MAX_RANK_US,
+                ]
+            ):
+                print(f"ADDED {asin} in US file")
+                with open(f"gbook_store/sell_US.txt", "a") as file_us:
+                    file_us.write(
+                        f"{tb_title}\t{tb_price}\t{amazon_rank_us}\t{amazon_lowest_price_us}\n"
+                    )
+
+
+def create_txt():
+    with open(f"thrift_books/sell_CA.txt", "w") as file_ca:
+        file_ca.write(
+            f"TITLE  |  TB-STORE-PRICE(CAD)  |  RANK CA  |  AMAZON CA PRICE\n-----------------------------------------\n"
+        )
+    with open(f"thrift_books/sell_US.txt", "w") as file_us:
+        file_us.write(
+            f"TITLE  |  TB-STORE-PRICE(CAD)  |  RANK US  |  AMAZON US PRICE\n-----------------------------------------\n"
+        )

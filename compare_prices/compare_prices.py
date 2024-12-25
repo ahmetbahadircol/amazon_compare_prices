@@ -104,14 +104,11 @@ def find_lowest_price(
     return min(temp, key=sum)
 
 
-def get_us_and_ca_infos(books) -> None:
+def get_us_and_ca_infos(books):
     """
-    returns None
-
     This function has three main parts:
         1. get asin, rank, price, and shipping price of the books (each market) and save it into a dict
         2. compare for each asin(book)'s price and ranks and decide "SHOULD BUYs" and "SHOULD SELLs"
-        3. Write them into the txt files
     """
     books_ca = get_offers_batch("CA", books)
     books_us = get_offers_batch("US", books)

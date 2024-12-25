@@ -6,6 +6,8 @@ from sp_api.base.exceptions import (
 )
 
 from helpers.auth_amazon import auth
+from sp_api.api import Catalog
+from itertools import islice
 
 
 def ensure_collection(func):
@@ -54,3 +56,20 @@ def reauth(func):
             return func(*args, **kwargs)
 
     return wrapper
+
+
+@retry_on_throttling(delay=2, max_retries=5)
+@reauth
+def get_book_type_from_asin(asin: str) -> str:
+    """
+    returns the type of a book using ASIN:
+        HARD: "Hardcover"
+        PAPER: "Paperback"
+    """
+    return Catalog().get_item(asin=asin).payload["AttributeSets"][0]["Binding"]
+
+
+def chunk_dict(data, chunk_size=20):
+    it = iter(data.items())
+    for _ in range(0, len(data), chunk_size):
+        yield dict(islice(it, chunk_size))

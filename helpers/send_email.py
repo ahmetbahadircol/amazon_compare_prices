@@ -19,7 +19,7 @@ def send_mail(
     sender_email = "noreplyahmetcol@gmail.com"
     sender_password = GMAIL_APP_PASS
     recipient_emails = [
-        "colmuhterem@gmail.com",
+        # "colmuhterem@gmail.com",
         sender_email,
     ]
     body = "See attachments"
@@ -50,6 +50,8 @@ def send_mail(
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender_email, sender_password)
         server.sendmail(sender_email, recipient_emails, message.as_string())
+
+    print("Email is sent!")
 
 
 if __name__ == "__main__":
